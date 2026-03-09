@@ -17,8 +17,6 @@ android {
     if (localPropertiesFile.exists()) {
         properties.load(localPropertiesFile.inputStream())
     }
-    val supabaseUrl = properties.getProperty("SUPABASE_URL") ?: "\"\""
-    val supabaseKey = properties.getProperty("SUPABASE_ANON_KEY") ?: "\"\""
 
     defaultConfig {
         applicationId = "com.example.expensetracker"
@@ -29,8 +27,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "SUPABASE_URL", supabaseUrl)
-        buildConfigField("String", "SUPABASE_ANON_KEY", supabaseKey)
+        buildConfigField("String", "SUPABASE_URL", "\"${properties.getProperty("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${properties.getProperty("SUPABASE_ANON_KEY")}\"")
     }
 
     buildTypes {

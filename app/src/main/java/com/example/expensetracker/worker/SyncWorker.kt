@@ -74,9 +74,9 @@ class SyncWorker(
             // Sync successful
             Result.success()
         } catch (e: Exception) {
-            e.printStackTrace()
-            // On network failure or other exceptions, retry later
-            Result.retry()
+            android.util.Log.e("SyncError", "Supabase sync failed", e)
+            val errorData = androidx.work.workDataOf("error" to (e.localizedMessage ?: "Unknown error"))
+            Result.failure(errorData)
         }
     }
 }

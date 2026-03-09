@@ -128,7 +128,8 @@ class SyncViewModel(
                         _syncStatus.value = SyncStatus.IDLE
                     }
                     WorkInfo.State.FAILED -> {
-                        handleSyncError("Background sync failed")
+                        val errorMsg = workInfo.outputData.getString("error") ?: "Background sync failed"
+                        handleSyncError(errorMsg)
                         kotlinx.coroutines.delay(3000)
                         _syncStatus.value = SyncStatus.IDLE
                     }
