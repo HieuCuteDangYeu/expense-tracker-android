@@ -15,7 +15,8 @@ data class ProjectEntity(
     val budget: Double,
     val specialRequirements: String?, // Optional
     val clientInfo: String?, // Optional
-    val priority: String // Low, Medium, High
+    val priority: String, // Low, Medium, High
+    val isDeleted: Boolean = false
 ) {
     val formattedId: String
         get() = "PRJ-${projectId.toString().padStart(4, '0')}"

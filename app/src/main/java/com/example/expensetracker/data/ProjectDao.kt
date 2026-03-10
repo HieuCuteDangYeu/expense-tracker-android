@@ -8,19 +8,19 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProjectDao {
-    @Query("SELECT * FROM projects") fun getAllProjects(): Flow<List<ProjectEntity>>
+    @Query("SELECT * FROM projects WHERE isDeleted = 0") fun getAllProjects(): Flow<List<ProjectEntity>>
 
     @Query(
-            "SELECT * FROM projects WHERE projectName LIKE '%' || :searchQuery || '%' OR description LIKE '%' || :searchQuery || '%'"
+            "SELECT * FROM projects WHERE isDeleted = 0 AND (projectName LIKE '%' || :searchQuery || '%' OR description LIKE '%' || :searchQuery || '%')"
     )
     fun searchProjects(searchQuery: String): Flow<List<ProjectEntity>>
 
     @androidx.room.Transaction
-    @Query("SELECT * FROM projects WHERE projectId = :projectId")
+    @Query("SELECT * FROM projects WHERE projectId = :projectId AND isDeleted = 0")
     fun getProjectWithExpenses(projectId: Int): Flow<ProjectWithExpenses>
 
     @androidx.room.Transaction
-    @Query("SELECT * FROM projects")
+    @Query("SELECT * FROM projects WHERE isDeleted = 0")
     suspend fun getAllProjectsWithExpenses(): List<ProjectWithExpenses>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -28,7 +28,14 @@ interface ProjectDao {
 
     @androidx.room.Update suspend fun updateProject(project: ProjectEntity)
 
-    @androidx.room.Delete suspend fun deleteProject(project: ProjectEntity)
+    @Query("UPDATE projects SET isDeleted = 1 WHERE projectId = :id")
+    suspend fun deleteProject(id: Int)
+
+    @Query("SELECT * FROM projects WHERE isDeleted = 1")
+    suspend fun getDeletedProjects(): List<ProjectEntity>
+
+    @Query("DELETE FROM projects WHERE projectId = :id")
+    suspend fun hardDeleteProject(id: Int)
 
     @Query("DELETE FROM projects") suspend fun deleteAllProjects()
 
@@ -47,7 +54,8 @@ interface ProjectDao {
     @androidx.room.Transaction
     @Query(
         """SELECT * FROM projects 
-        WHERE (:query IS NULL OR projectName LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%')
+        WHERE isDeleted = 0
+        AND (:query IS NULL OR projectName LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%')
         AND (:status IS NULL OR status = :status)
         AND (:manager IS NULL OR manager = :manager)
         AND (:startDate IS NULL OR startDate >= :startDate)

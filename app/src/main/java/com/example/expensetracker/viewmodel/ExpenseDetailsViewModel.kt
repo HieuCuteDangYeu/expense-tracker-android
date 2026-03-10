@@ -25,7 +25,7 @@ class ExpenseDetailsViewModel(
     fun deleteExpense(onDeleted: () -> Unit) {
         val current = expense.value ?: return
         viewModelScope.launch {
-            expenseDao.deleteExpense(current)
+            expenseDao.deleteExpense(current.expenseId)
             onDeleted()
         }
     }

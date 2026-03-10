@@ -89,7 +89,7 @@ class ProjectViewModel(private val projectDao: ProjectDao) : ViewModel() {
     }
 
     fun deleteProject(project: ProjectEntity) {
-        viewModelScope.launch { projectDao.deleteProject(project) }
+        viewModelScope.launch { projectDao.deleteProject(project.projectId) }
     }
 }
 

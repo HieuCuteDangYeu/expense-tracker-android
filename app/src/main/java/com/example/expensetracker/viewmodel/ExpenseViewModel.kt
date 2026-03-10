@@ -63,6 +63,26 @@ class ExpenseViewModel(
     private val _formState = MutableStateFlow(AddExpenseFormState())
     val formState: StateFlow<AddExpenseFormState> = _formState.asStateFlow()
 
+    private var editingExpenseId: Int? = null
+
+    fun loadExpenseForEdit(expense: ExpenseEntity) {
+        editingExpenseId = expense.expenseId
+        _projectId.value = expense.parentProjectId
+        _formState.value = AddExpenseFormState(
+            date = expense.date,
+            amount = expense.amount.toString(),
+            currency = expense.currency,
+            category = expense.type,
+            paymentMethod = expense.paymentMethod,
+            status = expense.paymentStatus,
+            claimant = expense.claimant,
+            location = expense.location ?: "",
+            description = expense.description ?: "",
+            receiptUri = expense.receiptUrl,
+            errors = emptyMap()
+        )
+    }
+
     private val _isLocationLoading = MutableStateFlow(false)
     val isLocationLoading: StateFlow<Boolean> = _isLocationLoading.asStateFlow()
 
@@ -111,6 +131,7 @@ class ExpenseViewModel(
 
     fun resetForm() {
         _formState.value = AddExpenseFormState()
+        editingExpenseId = null
     }
 
     fun cacheImageLocally(context: android.content.Context, uri: android.net.Uri): String? {
@@ -167,6 +188,7 @@ class ExpenseViewModel(
             }
 
             val expense = ExpenseEntity(
+                expenseId = editingExpenseId ?: 0,
                 parentProjectId = projectId,
                 date = currentState.date,
                 amount = currentState.amount.toDoubleOrNull() ?: 0.0,
@@ -179,7 +201,13 @@ class ExpenseViewModel(
                 location = currentState.location.ifBlank { null },
                 receiptUrl = publicUrl
             )
-            expenseDao.insertExpense(expense)
+            
+            if (editingExpenseId != null) {
+                expenseDao.updateExpense(expense)
+            } else {
+                expenseDao.insertExpense(expense)
+            }
+            
             resetForm()
         }
         return true

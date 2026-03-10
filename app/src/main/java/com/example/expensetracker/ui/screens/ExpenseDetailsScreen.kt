@@ -54,21 +54,34 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.expensetracker.ui.theme.AppTheme
 import com.example.expensetracker.viewmodel.ExpenseDetailsViewModel
+import com.example.expensetracker.viewmodel.ExpenseViewModel
 import java.util.Locale
 
 @Composable
 fun ExpenseDetailsScreen(
     viewModel: ExpenseDetailsViewModel,
+    sharedViewModel: ExpenseViewModel,
     onNavigateBack: () -> Unit,
     showDeleteDialog: Boolean = false,
-    onDismissDeleteDialog: () -> Unit = {}
+    onDismissDeleteDialog: () -> Unit = {},
+    triggerEdit: Boolean = false,
+    onEditConsumed: () -> Unit = {}
 ) {
     val expense by viewModel.expense.collectAsState()
     var internalShowDelete by remember { mutableStateOf(false) }
+    var showEditSheet by remember { mutableStateOf(false) }
 
     // Sync external trigger to internal state
     androidx.compose.runtime.LaunchedEffect(showDeleteDialog) {
         if (showDeleteDialog) internalShowDelete = true
+    }
+
+    androidx.compose.runtime.LaunchedEffect(triggerEdit, expense) {
+        if (triggerEdit && expense != null) {
+            sharedViewModel.loadExpenseForEdit(expense!!)
+            showEditSheet = true
+            onEditConsumed()
+        }
     }
 
     if (internalShowDelete) {
@@ -264,6 +277,13 @@ fun ExpenseDetailsScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        if (showEditSheet) {
+            AddExpenseBottomSheet(
+                viewModel = sharedViewModel,
+                onDismiss = { showEditSheet = false }
+            )
         }
     } else {
         // Loading state

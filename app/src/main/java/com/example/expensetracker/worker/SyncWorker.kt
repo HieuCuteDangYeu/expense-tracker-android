@@ -24,6 +24,27 @@ class SyncWorker(
             val expenseDao = database.expenseDao()
             val supabase = SupabaseClient.supabase
 
+            // --- 0. CLOUD DELETE (TOMBSTONING) ---
+            val deletedProjects = projectDao.getDeletedProjects()
+            deletedProjects.forEach { project ->
+                try {
+                    supabase.from("projects").delete { filter { eq("id", project.projectId.toString()) } }
+                    projectDao.hardDeleteProject(project.projectId)
+                } catch (e: Exception) {
+                    android.util.Log.e("SyncWorker", "Failed to delete project ${project.projectId} in cloud", e)
+                }
+            }
+            
+            val deletedExpenses = expenseDao.getDeletedExpenses()
+            deletedExpenses.forEach { expense ->
+                try {
+                    supabase.from("expenses").delete { filter { eq("id", expense.expenseId.toString()) } }
+                    expenseDao.hardDeleteExpense(expense.expenseId)
+                } catch (e: Exception) {
+                    android.util.Log.e("SyncWorker", "Failed to delete expense ${expense.expenseId} in cloud", e)
+                }
+            }
+
             // --- 1. PUSH TO CLOUD ---
             val projectsWithExpenses = projectDao.getAllProjectsWithExpenses()
 
@@ -96,7 +117,8 @@ class SyncWorker(
                     budget = it.budget,
                     specialRequirements = it.specialRequirements,
                     clientInfo = it.clientInfo,
-                    priority = "Medium" // Default fallback since priority is not in DTO
+                    priority = "Medium", // Default fallback since priority is not in DTO
+                    isDeleted = false
                 )
             }
 
@@ -113,7 +135,8 @@ class SyncWorker(
                     paymentStatus = it.status,
                     description = it.description,
                     location = it.location,
-                    receiptUrl = it.receiptUrl
+                    receiptUrl = it.receiptUrl,
+                    isDeleted = false
                 )
             }
 

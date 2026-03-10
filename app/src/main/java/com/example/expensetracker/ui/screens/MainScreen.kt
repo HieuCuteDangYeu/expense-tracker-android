@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,6 +80,7 @@ fun MainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     var showExpenseDeleteDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var triggerExpenseEdit by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     Scaffold(
             topBar = {
@@ -122,6 +124,13 @@ fun MainScreen(
                         },
                         actions = {
                             if (currentRoute?.startsWith("expense_details") == true) {
+                                IconButton(onClick = { triggerExpenseEdit = true }) {
+                                    Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit",
+                                            tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
                                 IconButton(onClick = { showExpenseDeleteDialog = true }) {
                                     Icon(
                                             imageVector = Icons.Default.Delete,
@@ -378,9 +387,12 @@ fun MainScreen(
                     )
                     ExpenseDetailsScreen(
                         viewModel = detailsViewModel,
+                        sharedViewModel = expenseViewModel,
                         onNavigateBack = { navController.popBackStack() },
                         showDeleteDialog = showExpenseDeleteDialog,
-                        onDismissDeleteDialog = { showExpenseDeleteDialog = false }
+                        onDismissDeleteDialog = { showExpenseDeleteDialog = false },
+                        triggerEdit = triggerExpenseEdit,
+                        onEditConsumed = { triggerExpenseEdit = false }
                     )
                 }
                 composable(Screen.Insights.route) {

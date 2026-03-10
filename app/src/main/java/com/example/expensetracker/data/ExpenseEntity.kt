@@ -29,5 +29,6 @@ data class ExpenseEntity(
     val paymentStatus: String, // Paid, Pending, Reimbursed
     val description: String?, // Optional
     val location: String?, // Optional
-    val receiptUrl: String? = null // Optional receipt image URL
+    val receiptUrl: String? = null, // Optional receipt image URL
+    val isDeleted: Boolean = false
 )
