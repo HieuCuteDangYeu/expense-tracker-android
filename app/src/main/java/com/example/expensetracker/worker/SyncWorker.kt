@@ -20,7 +20,54 @@ class SyncWorker(
         return try {
             val database = AppDatabase.getDatabase(applicationContext, CoroutineScope(Dispatchers.IO))
             val projectDao = database.projectDao()
+            val expenseDao = database.expenseDao()
+            val supabase = SupabaseClient.supabase
 
+            // --- 1. PULL FROM CLOUD ---
+            val cloudProjects = supabase.from("projects").select().decodeList<SupabaseProject>()
+            val cloudExpenses = supabase.from("expenses").select().decodeList<SupabaseExpense>()
+
+            val entityProjects = cloudProjects.map {
+                com.example.expensetracker.data.ProjectEntity(
+                    projectId = it.id.toIntOrNull() ?: 0,
+                    projectName = it.projectName,
+                    description = it.description ?: "",
+                    startDate = it.startDate ?: "",
+                    endDate = it.endDate ?: "",
+                    manager = it.manager,
+                    status = it.status,
+                    budget = it.budget,
+                    specialRequirements = it.specialRequirements,
+                    clientInfo = it.clientInfo,
+                    priority = "Medium" // Default fallback since priority is not in DTO
+                )
+            }
+
+            val entityExpenses = cloudExpenses.map {
+                com.example.expensetracker.data.ExpenseEntity(
+                    expenseId = it.id.toIntOrNull() ?: 0,
+                    parentProjectId = it.projectId.toIntOrNull() ?: 0,
+                    date = it.date,
+                    amount = it.amount,
+                    currency = it.currency,
+                    type = it.category,
+                    paymentMethod = it.paymentMethod,
+                    claimant = it.claimant,
+                    paymentStatus = it.status,
+                    description = it.description,
+                    location = it.location,
+                    receiptUri = it.receiptUri
+                )
+            }
+
+            if (entityProjects.isNotEmpty()) {
+                projectDao.insertAll(entityProjects)
+            }
+            if (entityExpenses.isNotEmpty()) {
+                expenseDao.insertAll(entityExpenses)
+            }
+
+            // --- 2. PUSH TO CLOUD ---
             val projectsWithExpenses = projectDao.getAllProjectsWithExpenses()
 
             val mappedProjects = mutableListOf<SupabaseProject>()
@@ -56,13 +103,12 @@ class SyncWorker(
                             claimant = expense.claimant,
                             status = expense.paymentStatus,
                             description = expense.description,
-                            location = expense.location
+                            location = expense.location,
+                            receiptUri = expense.receiptUri
                         )
                     )
                 }
             }
-
-            val supabase = SupabaseClient.supabase
             
             if (mappedProjects.isNotEmpty()) {
                 supabase.from("projects").upsert(mappedProjects)

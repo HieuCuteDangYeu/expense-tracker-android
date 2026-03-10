@@ -9,7 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [ProjectEntity::class, ExpenseEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ProjectEntity::class, ExpenseEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun expenseDao(): ExpenseDao

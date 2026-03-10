@@ -29,6 +29,7 @@ data class AddExpenseFormState(
     val claimant: String = "",
     val location: String = "",
     val description: String = "",
+    val receiptUri: String? = null,
     val errors: Map<String, String> = emptyMap()
 )
 
@@ -103,6 +104,10 @@ class ExpenseViewModel(
         }
     }
 
+    fun setReceiptUri(uri: String?) {
+        _formState.update { it.copy(receiptUri = uri) }
+    }
+
     fun resetForm() {
         _formState.value = AddExpenseFormState()
     }
@@ -133,7 +138,8 @@ class ExpenseViewModel(
                 claimant = currentState.claimant,
                 paymentStatus = currentState.status,
                 description = currentState.description.ifBlank { null },
-                location = currentState.location.ifBlank { null }
+                location = currentState.location.ifBlank { null },
+                receiptUri = currentState.receiptUri
             )
             expenseDao.insertExpense(expense)
             resetForm()

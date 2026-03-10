@@ -102,4 +102,10 @@ dependencies {
     // Location & Maps
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // Image Loading (Coil)
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Extended Material Icons (for Camera, Gallery icons)
+    implementation("androidx.compose.material:material-icons-extended")
 }

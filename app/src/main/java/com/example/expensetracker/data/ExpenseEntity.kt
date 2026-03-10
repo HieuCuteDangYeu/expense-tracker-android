@@ -28,5 +28,6 @@ data class ExpenseEntity(
     val claimant: String,
     val paymentStatus: String, // Paid, Pending, Reimbursed
     val description: String?, // Optional
-    val location: String? // Optional
+    val location: String?, // Optional
+    val receiptUri: String? = null // Optional receipt image URI
 )
