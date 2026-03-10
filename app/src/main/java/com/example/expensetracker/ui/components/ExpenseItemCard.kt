@@ -40,12 +40,13 @@ import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
-fun ExpenseItemCard(expense: ExpenseEntity) {
+fun ExpenseItemCard(expense: ExpenseEntity, onClick: () -> Unit = {}) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier.padding(12.dp), // p-3 -> 12.dp

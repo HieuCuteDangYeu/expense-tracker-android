@@ -1,5 +1,7 @@
 package com.example.expensetracker.ui.screens
 
+import androidx.navigation.NavController
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +51,8 @@ import java.util.Locale
 @Composable
 fun ProjectDetailsScreen(
     projectId: Int,
-    viewModel: ExpenseViewModel
+    viewModel: ExpenseViewModel,
+    navController: NavController
 ) {
     val projectWithExpenses by viewModel.projectDetails.collectAsState()
     var showAddExpense by remember { mutableStateOf(false) }
@@ -234,7 +237,12 @@ fun ProjectDetailsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(expenses.sortedByDescending { it.date }) { expense ->
-                            ExpenseItemCard(expense = expense)
+                            ExpenseItemCard(
+                                expense = expense,
+                                onClick = {
+                                    navController.navigate("expense_details/${expense.expenseId}")
+                                }
+                            )
                         }
                     }
                 }

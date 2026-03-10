@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +37,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -75,6 +78,7 @@ fun MainScreen(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    var showExpenseDeleteDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     Scaffold(
             topBar = {
@@ -85,7 +89,10 @@ fun MainScreen(
                             Screen.Projects.route -> "Project Tracker"
                             Screen.Insights.route -> "Spending Insights"
                             Screen.Sync.route -> "Sync Center"
-                            else -> "Project Tracker"
+                            else -> {
+                                if (currentRoute?.startsWith("expense_details") == true) "Expense Details"
+                                else "Project Tracker"
+                            }
                         }
                 TopAppBar(
                         title = {
@@ -109,6 +116,17 @@ fun MainScreen(
                                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                             contentDescription = "Back",
                                             tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        },
+                        actions = {
+                            if (currentRoute?.startsWith("expense_details") == true) {
+                                IconButton(onClick = { showExpenseDeleteDialog = true }) {
+                                    Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete",
+                                            tint = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
@@ -339,7 +357,30 @@ fun MainScreen(
                                     ?: return@composable
                     ProjectDetailsScreen(
                             projectId = projectId,
-                            viewModel = expenseViewModel
+                            viewModel = expenseViewModel,
+                            navController = navController
+                    )
+                }
+                composable("expense_details/{expenseId}") { backStackEntry ->
+                    val expenseId =
+                            backStackEntry.arguments?.getString("expenseId")?.toIntOrNull()
+                                    ?: return@composable
+                    val database = com.example.expensetracker.data.AppDatabase.getDatabase(
+                        navController.context,
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
+                    )
+                    val factory = com.example.expensetracker.viewmodel.ExpenseDetailsViewModelFactory(
+                        database.expenseDao(), expenseId
+                    )
+                    val detailsViewModel = androidx.lifecycle.viewmodel.compose.viewModel<com.example.expensetracker.viewmodel.ExpenseDetailsViewModel>(
+                        factory = factory,
+                        key = "expense_details_$expenseId"
+                    )
+                    ExpenseDetailsScreen(
+                        viewModel = detailsViewModel,
+                        onNavigateBack = { navController.popBackStack() },
+                        showDeleteDialog = showExpenseDeleteDialog,
+                        onDismissDeleteDialog = { showExpenseDeleteDialog = false }
                     )
                 }
                 composable(Screen.Insights.route) {
