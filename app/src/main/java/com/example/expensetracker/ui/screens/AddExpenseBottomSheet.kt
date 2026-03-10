@@ -144,7 +144,10 @@ fun AddExpenseBottomSheet(
         ActivityResultContracts.TakePicture()
     ) { success ->
         if (success && cameraImageUri != null) {
-            viewModel.setReceiptUri(cameraImageUri.toString())
+            val localPath = viewModel.cacheImageLocally(context, cameraImageUri!!)
+            if (localPath != null) {
+                viewModel.setReceiptUri(localPath)
+            }
         }
     }
 
@@ -152,7 +155,10 @@ fun AddExpenseBottomSheet(
         ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            viewModel.setReceiptUri(uri.toString())
+            val localPath = viewModel.cacheImageLocally(context, uri)
+            if (localPath != null) {
+                viewModel.setReceiptUri(localPath)
+            }
         }
     }
 
@@ -298,6 +304,17 @@ fun AddExpenseBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Description text input
+            StitchTextField(
+                label = "DESCRIPTION (OPTIONAL)",
+                value = uiState.description,
+                onValueChange = { viewModel.updateField("description", it) },
+                placeholder = "Additional details...",
+                errorText = uiState.errors["description"]
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Attach Receipt Section
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -313,7 +330,7 @@ fun AddExpenseBottomSheet(
                     // Show thumbnail with X clear button
                     Box(modifier = Modifier.size(80.dp)) {
                         AsyncImage(
-                            model = android.net.Uri.parse(uiState.receiptUri),
+                            model = if (uiState.receiptUri!!.startsWith("http")) uiState.receiptUri else java.io.File(uiState.receiptUri!!),
                             contentDescription = "Receipt thumbnail",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier

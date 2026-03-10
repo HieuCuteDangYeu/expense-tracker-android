@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
+import io.github.jan.supabase.storage.storage
 
 data class AddExpenseFormState(
     val date: String = "",
@@ -112,6 +113,18 @@ class ExpenseViewModel(
         _formState.value = AddExpenseFormState()
     }
 
+    fun cacheImageLocally(context: android.content.Context, uri: android.net.Uri): String? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val file = java.io.File(context.filesDir, "receipt_${java.util.UUID.randomUUID()}.jpg")
+            file.outputStream().use { output -> inputStream.copyTo(output) }
+            file.absolutePath
+        } catch (e: Exception) {
+            android.util.Log.e("CacheError", "Failed to cache image", e)
+            null
+        }
+    }
+
     fun saveExpense(): Boolean {
         val currentState = _formState.value
         val errors = mutableMapOf<String, String>()
@@ -127,7 +140,32 @@ class ExpenseViewModel(
 
         val projectId = _projectId.value ?: return false
 
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            var publicUrl: String? = currentState.receiptUri // fallback to local URI or null
+
+            // If we have a local file path (not HTTP URL), attempt upload
+            if (currentState.receiptUri != null && !currentState.receiptUri.startsWith("http")) {
+                try {
+                    val file = java.io.File(currentState.receiptUri)
+                    if (file.exists()) {
+                        val byteArray = file.readBytes()
+                        
+                        if (byteArray.isNotEmpty()) {
+                            val uuid = UUID.randomUUID().toString()
+                            val supabase = com.example.expensetracker.data.network.SupabaseClient.supabase
+                            
+                            // Upload to 'receipts' bucket
+                            supabase.storage.from("receipts").upload("$uuid.jpg", byteArray)
+                            
+                            // Retrieve public URL
+                            publicUrl = supabase.storage.from("receipts").publicUrl("$uuid.jpg")
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("ExpenseViewModel", "Failed to upload receipt", e)
+                }
+            }
+
             val expense = ExpenseEntity(
                 parentProjectId = projectId,
                 date = currentState.date,
@@ -139,7 +177,7 @@ class ExpenseViewModel(
                 paymentStatus = currentState.status,
                 description = currentState.description.ifBlank { null },
                 location = currentState.location.ifBlank { null },
-                receiptUri = currentState.receiptUri
+                receiptUrl = publicUrl
             )
             expenseDao.insertExpense(expense)
             resetForm()

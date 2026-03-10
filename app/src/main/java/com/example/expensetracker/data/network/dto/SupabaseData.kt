@@ -30,5 +30,5 @@ data class SupabaseExpense(
     @SerialName("payment_status") val status: String,
     @SerialName("description") val description: String?,
     @SerialName("location") val location: String?,
-    @SerialName("receipt_uri") val receiptUri: String? = null
+    @SerialName("receiptUrl") val receiptUrl: String? = null
 )

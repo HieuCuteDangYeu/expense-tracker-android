@@ -9,5 +9,8 @@ object SupabaseClient {
             createSupabaseClient(
                     supabaseUrl = BuildConfig.SUPABASE_URL,
                     supabaseKey = BuildConfig.SUPABASE_ANON_KEY
-            ) { install(Postgrest) }
+            ) { 
+                install(Postgrest)
+                install(io.github.jan.supabase.storage.Storage)
+            }
 }
