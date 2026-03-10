@@ -61,6 +61,24 @@ class ExpenseViewModel(
     private val _formState = MutableStateFlow(AddExpenseFormState())
     val formState: StateFlow<AddExpenseFormState> = _formState.asStateFlow()
 
+    private val _isLocationLoading = MutableStateFlow(false)
+    val isLocationLoading: StateFlow<Boolean> = _isLocationLoading.asStateFlow()
+
+    private val _showGpsDialog = MutableStateFlow(false)
+    val showGpsDialog: StateFlow<Boolean> = _showGpsDialog.asStateFlow()
+
+    fun dismissGpsDialog() {
+        _showGpsDialog.value = false
+    }
+
+    fun setShowGpsDialog(show: Boolean) {
+        _showGpsDialog.value = show
+    }
+
+    fun setLocationLoading(isLoading: Boolean) {
+        _isLocationLoading.value = isLoading
+    }
+
     fun setProjectId(id: Int) {
         _projectId.value = id
     }

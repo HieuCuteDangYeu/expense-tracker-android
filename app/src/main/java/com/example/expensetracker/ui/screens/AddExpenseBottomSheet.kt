@@ -1,5 +1,7 @@
 package com.example.expensetracker.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,14 +12,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -25,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
@@ -39,6 +46,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +57,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.example.expensetracker.ui.theme.AppTheme
+import com.example.expensetracker.util.LocationHelper
 import com.example.expensetracker.viewmodel.ExpenseViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,6 +73,63 @@ fun AddExpenseBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val uiState by viewModel.formState.collectAsState()
+    val isLocationLoading by viewModel.isLocationLoading.collectAsState()
+    val showGpsDialog by viewModel.showGpsDialog.collectAsState()
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val locationHelper = remember { LocationHelper(context) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            val locationManager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+            val isGpsEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+            val isNetworkEnabled = locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+
+            if (!isGpsEnabled && !isNetworkEnabled) {
+                viewModel.setLocationLoading(false)
+                viewModel.setShowGpsDialog(true)
+                return@rememberLauncherForActivityResult
+            }
+
+            scope.launch {
+                try {
+                    viewModel.setLocationLoading(true)
+                    val address = locationHelper.getCurrentLocationAddress()
+                    if (address != null) {
+                        viewModel.updateField("location", address)
+                    }
+                } finally {
+                    viewModel.setLocationLoading(false)
+                }
+            }
+        }
+    }
+
+    if (showGpsDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissGpsDialog() },
+            title = { Text("Location Disabled") },
+            text = { Text("Your device's location services are turned off. Please enable GPS to automatically detect your address.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    context.startActivity(intent)
+                    viewModel.dismissGpsDialog()
+                }) {
+                    Text("Turn On Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissGpsDialog() }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -162,6 +229,28 @@ fun AddExpenseBottomSheet(
                 options = listOf("Cash", "Card", "Transfer", "Cheque"),
                 selectedOption = uiState.paymentMethod,
                 onOptionSelected = { viewModel.updateField("paymentMethod", it) }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Location text input (Auto-Location Integration)
+            ExpenseLocationField(
+                label = "LOCATION",
+                value = uiState.location,
+                onValueChange = { viewModel.updateField("location", it) },
+                placeholder = "City, Street",
+                errorText = uiState.errors["location"],
+                isLoading = isLocationLoading,
+                onGpsClick = {
+                    permissionLauncher.launch(
+                        arrayOf(
+                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -526,6 +615,77 @@ private fun StitchTextField(
                 unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 errorBorderColor = MaterialTheme.colorScheme.error
+            ),
+            singleLine = true,
+            isError = errorText != null
+        )
+        if (errorText != null) {
+            Text(
+                text = errorText,
+                style = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.error),
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
+    }
+}
+
+// ── Location Input Field (with GPS Auto-Detect) ──────────────────────────────
+@Composable
+fun ExpenseLocationField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "",
+    errorText: String?,
+    isLoading: Boolean = false,
+    onGpsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = label,
+            style = TextStyle(
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AppTheme.extended.textSecondary
+            )
+        )
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading,
+            placeholder = {
+                Text(placeholder, style = TextStyle(fontSize = 14.sp, color = AppTheme.extended.textTertiary))
+            },
+            trailingIcon = {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    IconButton(onClick = onGpsClick, enabled = !isLoading) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = "Auto-detect location",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            },
+            textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
+            shape = RoundedCornerShape(8.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                errorBorderColor = MaterialTheme.colorScheme.error,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledContainerColor = MaterialTheme.colorScheme.surface,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledTrailingIconColor = AppTheme.extended.textTertiary,
+                disabledPlaceholderColor = AppTheme.extended.textTertiary
             ),
             singleLine = true,
             isError = errorText != null
