@@ -45,6 +45,9 @@ import com.example.expensetracker.ui.theme.AppTheme
 import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
+import android.content.Context
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +58,7 @@ fun ProjectCard(
         onDelete: () -> Unit = {},
         modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val project = projectWithExpenses.project
     val format = NumberFormat.getCurrencyInstance(Locale.US)
     format.currency = Currency.getInstance("USD")
@@ -266,7 +270,11 @@ fun ProjectCard(
                             }
 
                             IconButton(
-                                    onClick = { showMenuOverlay = false },
+                                    onClick = { 
+                                        showMenuOverlay = false
+                                        val shareText = generateShareText(projectWithExpenses)
+                                        shareProject(context, shareText)
+                                    },
                                     modifier =
                                             Modifier.size(48.dp)
                                                     .background(
@@ -287,4 +295,39 @@ fun ProjectCard(
             }
         }
     }
+}
+
+fun generateShareText(projectWithExpenses: ProjectWithExpenses): String {
+    val format = NumberFormat.getCurrencyInstance(Locale.US)
+    format.currency = Currency.getInstance("USD")
+    format.maximumFractionDigits = 0
+
+    val project = projectWithExpenses.project
+    val totalSpent = projectWithExpenses.expenses.sumOf { it.amount }
+
+    val sb = StringBuilder()
+    sb.appendLine("Project: ${project.projectName}")
+    sb.appendLine("Budget: ${format.format(project.budget)}")
+    sb.appendLine("Total Spent: ${format.format(totalSpent)}")
+    
+    if (projectWithExpenses.expenses.isNotEmpty()) {
+        sb.appendLine("\nExpenses:")
+        projectWithExpenses.expenses.forEach { expense ->
+            val date = expense.date.takeIf { it.isNotBlank() } ?: "No Date"
+            val location = expense.location.takeIf { it?.isNotBlank() == true } ?: "No Location"
+            sb.appendLine("- [$date] [$location] ${format.format(expense.amount)}")
+        }
+    }
+
+    return sb.toString()
+}
+
+fun shareProject(context: Context, shareText: String) {
+    val sendIntent: Intent = Intent().apply {
+        action = Intent.ACTION_SEND
+        putExtra(Intent.EXTRA_TEXT, shareText)
+        type = "text/plain"
+    }
+    val shareIntent = Intent.createChooser(sendIntent, "Share Project Summary")
+    context.startActivity(shareIntent)
 }
