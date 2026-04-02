@@ -9,17 +9,14 @@ import com.example.expensetracker.data.network.dto.SupabaseExpense
 import com.example.expensetracker.data.network.dto.SupabaseProject
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 
 class SyncWorker(
-    appContext: Context,
-    workerParams: WorkerParameters
+    appContext: Context, workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         return try {
-            val database = AppDatabase.getDatabase(applicationContext, CoroutineScope(Dispatchers.IO))
+            val database = AppDatabase.getDatabase(applicationContext)
             val projectDao = database.projectDao()
             val expenseDao = database.expenseDao()
             val supabase = SupabaseClient.supabase
@@ -28,20 +25,26 @@ class SyncWorker(
             val deletedProjects = projectDao.getDeletedProjects()
             deletedProjects.forEach { project ->
                 try {
-                    supabase.from("projects").delete { filter { eq("id", project.projectId.toString()) } }
+                    supabase.from("projects")
+                        .delete { filter { eq("id", project.projectId.toString()) } }
                     projectDao.hardDeleteProject(project.projectId)
                 } catch (e: Exception) {
-                    android.util.Log.e("SyncWorker", "Failed to delete project ${project.projectId} in cloud", e)
+                    android.util.Log.e(
+                        "SyncWorker", "Failed to delete project ${project.projectId} in cloud", e
+                    )
                 }
             }
-            
+
             val deletedExpenses = expenseDao.getDeletedExpenses()
             deletedExpenses.forEach { expense ->
                 try {
-                    supabase.from("expenses").delete { filter { eq("id", expense.expenseId.toString()) } }
+                    supabase.from("expenses")
+                        .delete { filter { eq("id", expense.expenseId.toString()) } }
                     expenseDao.hardDeleteExpense(expense.expenseId)
                 } catch (e: Exception) {
-                    android.util.Log.e("SyncWorker", "Failed to delete expense ${expense.expenseId} in cloud", e)
+                    android.util.Log.e(
+                        "SyncWorker", "Failed to delete expense ${expense.expenseId} in cloud", e
+                    )
                 }
             }
 
@@ -70,7 +73,7 @@ class SyncWorker(
 
                 relation.expenses.forEach { expense ->
                     val finalUrl = expense.receiptUrl?.let { uploadImageIfLocal(it, supabase) }
-                    
+
                     if (finalUrl != expense.receiptUrl && finalUrl != null) {
                         expenseDao.updateExpense(expense.copy(receiptUrl = finalUrl))
                     }
@@ -93,7 +96,7 @@ class SyncWorker(
                     )
                 }
             }
-            
+
             if (mappedProjects.isNotEmpty()) {
                 supabase.from("projects").upsert(mappedProjects)
             }
@@ -151,12 +154,15 @@ class SyncWorker(
             Result.success()
         } catch (e: Exception) {
             android.util.Log.e("SyncError", "Supabase sync failed", e)
-            val errorData = androidx.work.workDataOf("error" to (e.localizedMessage ?: "Unknown error"))
+            val errorData =
+                androidx.work.workDataOf("error" to (e.localizedMessage ?: "Unknown error"))
             Result.failure(errorData)
         }
     }
 
-    private suspend fun uploadImageIfLocal(uriString: String, supabase: io.github.jan.supabase.SupabaseClient): String? {
+    private suspend fun uploadImageIfLocal(
+        uriString: String, supabase: io.github.jan.supabase.SupabaseClient
+    ): String? {
         if (uriString.startsWith("http")) return uriString
 
         return try {
@@ -165,9 +171,9 @@ class SyncWorker(
 
             val byteArray = file.readBytes()
             if (byteArray.isEmpty()) return null
-            
+
             val fileName = java.util.UUID.randomUUID().toString() + ".jpg"
-            
+
             supabase.storage.from("receipts").upload(fileName, byteArray)
             supabase.storage.from("receipts").publicUrl(fileName)
         } catch (e: Exception) {

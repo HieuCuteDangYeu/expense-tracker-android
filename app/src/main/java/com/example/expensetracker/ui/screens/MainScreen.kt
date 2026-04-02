@@ -381,11 +381,8 @@ fun MainScreen(
                 composable("expense_details/{expenseId}") { backStackEntry ->
                     val expenseId = backStackEntry.arguments?.getString("expenseId")?.toIntOrNull()
                         ?: return@composable
-                    val database = com.example.expensetracker.data.AppDatabase.getDatabase(
-                        navController.context, kotlinx.coroutines.CoroutineScope(
-                            kotlinx.coroutines.Dispatchers.IO
-                        )
-                    )
+                    val database =
+                        com.example.expensetracker.data.AppDatabase.getDatabase(navController.context)
                     val factory =
                         com.example.expensetracker.viewmodel.ExpenseDetailsViewModelFactory(
                             database.expenseDao(), expenseId
