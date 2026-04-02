@@ -43,9 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expensetracker.ui.components.ExpenseItemCard
 import com.example.expensetracker.ui.theme.AppTheme
+import com.example.expensetracker.util.FormatUtils
 import com.example.expensetracker.viewmodel.ExpenseViewModel
-import java.text.NumberFormat
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,7 +141,7 @@ fun ProjectDetailsScreen(
                                             )
                                         )
                                         Text(
-                                            text = formatCurrency(totalSpent),
+                                            text = FormatUtils.formatCurrency(totalSpent),
                                             style = TextStyle(
                                                 fontSize = 24.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -161,7 +160,7 @@ fun ProjectDetailsScreen(
                                             )
                                         )
                                         Text(
-                                            text = formatCurrency(budget),
+                                            text = FormatUtils.formatCurrency(budget),
                                             style = TextStyle(
                                                 fontSize = 18.sp,
                                                 fontWeight = FontWeight.Medium,
@@ -256,8 +255,4 @@ fun ProjectDetailsScreen(
             )
         }
     }
-}
-
-private fun formatCurrency(amount: Double): String {
-    return "$" + String.format(Locale.US, "%,.2f", amount)
 }

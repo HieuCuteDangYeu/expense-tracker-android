@@ -43,11 +43,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expensetracker.ui.theme.AppTheme
+import com.example.expensetracker.ui.components.EmptyStateMessage
+import com.example.expensetracker.util.FormatUtils
 import com.example.expensetracker.viewmodel.InsightsUiState
 import com.example.expensetracker.viewmodel.InsightsViewModel
-import java.text.NumberFormat
-import java.util.Currency
-import java.util.Locale
 
 // Category colors for the breakdown bars and donut chart
 // These are intentionally kept as fixed brand colors for data visualization
@@ -63,16 +62,15 @@ private val categoryColors = listOf(
     Color(0xFFF97316),  // Orange-500
 )
 
+/** Helper to format currency amounts consistently throughout Insights. */
+private fun formatAmount(amount: Double): String = FormatUtils.formatCurrency(amount)
+
 @Composable
 fun InsightsScreen(
     viewModel: InsightsViewModel,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    val format = NumberFormat.getCurrencyInstance(Locale.US)
-    format.currency = Currency.getInstance("USD")
-    format.maximumFractionDigits = 0
 
     Column(
         modifier = modifier
@@ -83,7 +81,11 @@ fun InsightsScreen(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         if (uiState.expensesByType.isEmpty()) {
-            EmptyInsightsState()
+            EmptyStateMessage(
+                title = "No Expenses Yet",
+                description = "Add expenses to your projects to see spending insights and analytics here.",
+                icon = Icons.Default.Info
+            )
         } else {
             // ── Summary Cards Row ────────────────────────────────────────
             Row(
@@ -95,7 +97,7 @@ fun InsightsScreen(
                     label = "Most Expensive",
                     value = uiState.topExpenseType?.expenseType ?: "—",
                     subtitle = if (uiState.topExpenseType != null)
-                        format.format(uiState.topExpenseType!!.totalAmount) else "—",
+                        formatAmount(uiState.topExpenseType!!.totalAmount) else "—",
                     accentColor = MaterialTheme.colorScheme.primary
                 )
 
@@ -112,13 +114,13 @@ fun InsightsScreen(
             }
 
             // ── Donut Chart ──────────────────────────────────────────────
-            DonutChartCard(uiState = uiState, format = format)
+            DonutChartCard(uiState = uiState)
 
             // ── Expense Breakdown (Progress Bars) ────────────────────────
-            ExpenseBreakdownCard(uiState = uiState, format = format)
+            ExpenseBreakdownCard(uiState = uiState)
 
             // ── Spending Trend Card ──────────────────────────────────────
-            SpendingTrendCard(uiState = uiState, format = format)
+            SpendingTrendCard(uiState = uiState)
 
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -198,8 +200,7 @@ private fun SummaryCard(
 // ── Donut Chart Card ─────────────────────────────────────────────────
 @Composable
 private fun DonutChartCard(
-    uiState: InsightsUiState,
-    format: NumberFormat
+    uiState: InsightsUiState
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -268,7 +269,7 @@ private fun DonutChartCard(
                         )
                     )
                     Text(
-                        text = format.format(uiState.totalExpenses),
+                        text = formatAmount(uiState.totalExpenses),
                         style = TextStyle(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
@@ -306,7 +307,7 @@ private fun DonutChartCard(
                             )
                         )
                         Text(
-                            text = format.format(category.totalAmount),
+                            text = formatAmount(category.totalAmount),
                             style = TextStyle(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -323,8 +324,7 @@ private fun DonutChartCard(
 // ── Expense Breakdown Card (Progress Bars) ───────────────────────────
 @Composable
 private fun ExpenseBreakdownCard(
-    uiState: InsightsUiState,
-    format: NumberFormat
+    uiState: InsightsUiState
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -397,7 +397,7 @@ private fun ExpenseBreakdownCard(
                                 )
                             )
                             Text(
-                                text = format.format(category.totalAmount),
+                                text = formatAmount(category.totalAmount),
                                 style = TextStyle(
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -425,8 +425,7 @@ private fun ExpenseBreakdownCard(
 // ── Spending Trend Card ──────────────────────────────────────────────
 @Composable
 private fun SpendingTrendCard(
-    uiState: InsightsUiState,
-    format: NumberFormat
+    uiState: InsightsUiState
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -456,9 +455,9 @@ private fun SpendingTrendCard(
                     )
                 )
                 val trendText = if (uiState.isUnderBudget) {
-                    "You are currently ${100 - uiState.budgetUsedPercent}% under your total budget of ${format.format(uiState.totalBudget)}."
+                    "You are currently ${100 - uiState.budgetUsedPercent}% under your total budget of ${formatAmount(uiState.totalBudget)}."
                 } else {
-                    "You've exceeded your total budget of ${format.format(uiState.totalBudget)} by ${format.format(uiState.totalExpenses - uiState.totalBudget)}."
+                    "You've exceeded your total budget of ${formatAmount(uiState.totalBudget)} by ${formatAmount(uiState.totalExpenses - uiState.totalBudget)}."
                 }
                 Text(
                     text = trendText,
@@ -473,46 +472,3 @@ private fun SpendingTrendCard(
     }
 }
 
-// ── Empty State ──────────────────────────────────────────────────────
-@Composable
-private fun EmptyInsightsState() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = AppTheme.extended.textSecondary,
-                modifier = Modifier.size(48.dp)
-            )
-            Text(
-                text = "No Expenses Yet",
-                style = TextStyle(
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            )
-            Text(
-                text = "Add expenses to your projects to see spending insights and analytics here.",
-                style = TextStyle(
-                    fontSize = 14.sp,
-                    color = AppTheme.extended.textSecondary,
-                    lineHeight = 20.sp
-                ),
-                modifier = Modifier.padding(horizontal = 16.dp),
-                maxLines = 3
-            )
-        }
-    }
-}

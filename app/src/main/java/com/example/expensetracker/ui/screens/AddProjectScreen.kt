@@ -9,7 +9,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.expensetracker.ui.components.AppDatePickerField
 import com.example.expensetracker.ui.theme.AppTheme
 import com.example.expensetracker.viewmodel.ProjectFormViewModel
 
@@ -191,20 +191,20 @@ fun AddProjectScreen(viewModel: ProjectFormViewModel, onNavigateBack: () -> Unit
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    DatePickerField(
+                    AppDatePickerField(
                             label = "Start Date",
                             value = uiState.startDate,
-                            onValueChange = { viewModel.updateField("startDate", it) },
+                            onDateSelected = { it?.let { date -> viewModel.updateField("startDate", date) } },
                             errorText = uiState.errors["startDate"],
                             isRequired = true,
                             modifier = Modifier.weight(1f),
                             description = "MM/DD/YYYY"
                     )
 
-                    DatePickerField(
+                    AppDatePickerField(
                             label = "End Date",
                             value = uiState.endDate,
-                            onValueChange = { viewModel.updateField("endDate", it) },
+                            onDateSelected = { it?.let { date -> viewModel.updateField("endDate", date) } },
                             errorText = uiState.errors["endDate"],
                             isRequired = true,
                             modifier = Modifier.weight(1f),
@@ -485,139 +485,3 @@ fun ValidatedTextField(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DatePickerField(
-        label: String,
-        value: String,
-        onValueChange: (String) -> Unit,
-        errorText: String?,
-        isRequired: Boolean,
-        modifier: Modifier = Modifier,
-        description: String? = null
-) {
-    var showDialog by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState()
-
-    if (showDialog) {
-        DatePickerDialog(
-                onDismissRequest = { showDialog = false },
-                confirmButton = {
-                    TextButton(
-                            onClick = {
-                                datePickerState.selectedDateMillis?.let { millis ->
-                                    val formattedDate =
-                                            java.text.SimpleDateFormat(
-                                                            "dd/MM/yyyy",
-                                                            java.util.Locale.getDefault()
-                                                    )
-                                                    .format(java.util.Date(millis))
-                                    onValueChange(formattedDate)
-                                }
-                                showDialog = false
-                            }
-                    ) { Text("OK", color = MaterialTheme.colorScheme.primary) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDialog = false }) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-        ) { DatePicker(state = datePickerState) }
-    }
-
-    Column(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                    text = label,
-                    style =
-                            androidx.compose.ui.text.TextStyle(
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                            ),
-                    modifier = Modifier.padding(horizontal = 4.dp)
-            )
-            if (isRequired) {
-                Text(
-                        text = " *",
-                        style =
-                                androidx.compose.ui.text.TextStyle(
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.error
-                                )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                    value = value,
-                    onValueChange = {},
-                    textStyle =
-                            androidx.compose.ui.text.TextStyle(
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                            ),
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    isError = errorText != null,
-                    readOnly = true,
-                    placeholder = {
-                        Text("MM/DD/YYYY", color = AppTheme.extended.textTertiary)
-                    },
-                    trailingIcon = {
-                        Icon(
-                                Icons.Default.DateRange,
-                                "Select Date",
-                                tint = AppTheme.extended.textSecondary
-                        )
-                    },
-                    shape = RoundedCornerShape(8.dp),
-                    colors =
-                            OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                                    errorBorderColor = MaterialTheme.colorScheme.error,
-                                    errorContainerColor = MaterialTheme.colorScheme.surface
-                            )
-            )
-            Box(
-                    Modifier.matchParentSize()
-                            .clickable(
-                                    onClick = { showDialog = true },
-                                    indication = null,
-                                    interactionSource =
-                                            remember {
-                                                androidx.compose.foundation.interaction
-                                                        .MutableInteractionSource()
-                                            }
-                            )
-            )
-        }
-
-        if (errorText != null) {
-            Text(
-                    text = errorText,
-                    style = androidx.compose.ui.text.TextStyle(
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.padding(top = 6.dp, start = 4.dp)
-            )
-        } else if (description != null) {
-            Text(
-                    text = description,
-                    style = androidx.compose.ui.text.TextStyle(
-                            fontSize = 12.sp,
-                            color = AppTheme.extended.textSecondary
-                    ),
-                    modifier = Modifier.padding(top = 6.dp, start = 4.dp)
-            )
-        }
-    }
-}

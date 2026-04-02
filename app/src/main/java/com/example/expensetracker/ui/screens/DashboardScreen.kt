@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.expensetracker.ui.components.AdvancedSearchPanel
+import com.example.expensetracker.ui.components.EmptyStateMessage
 import com.example.expensetracker.ui.components.ProjectCard
 import com.example.expensetracker.viewmodel.ProjectViewModel
 
@@ -151,17 +152,10 @@ fun DashboardScreen(
                 ) {
                         if (projects.isEmpty()) {
                                 item {
-                                        Box(
-                                                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                                                contentAlignment = Alignment.Center
-                                        ) {
-                                                Text(
-                                                        "No projects found",
-                                                        color =
-                                                                MaterialTheme.colorScheme
-                                                                        .onSurfaceVariant
-                                                )
-                                        }
+                                        EmptyStateMessage(
+                                                title = "No projects found",
+                                                modifier = Modifier.padding(16.dp)
+                                        )
                                 }
                         } else {
                                 items(projects, key = { it.project.projectId }) {

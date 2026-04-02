@@ -17,25 +17,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,9 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expensetracker.ui.theme.AppTheme
 import com.example.expensetracker.viewmodel.FilterState
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -112,17 +105,21 @@ fun AdvancedSearchPanel(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    DateFilterField(
-                        label = "START DATE",
+                    AppDatePickerField(
+                        label = "Start Date",
                         value = filterState.startDate,
                         onDateSelected = onStartDateChange,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        showClearButton = true,
+                        placeholder = "Select"
                     )
-                    DateFilterField(
-                        label = "END DATE",
+                    AppDatePickerField(
+                        label = "End Date",
                         value = filterState.endDate,
                         onDateSelected = onEndDateChange,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        showClearButton = true,
+                        placeholder = "Select"
                     )
                 }
 
@@ -206,83 +203,6 @@ fun AdvancedSearchPanel(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DateFilterField(
-    label: String,
-    value: String?,
-    onDateSelected: (String?) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var showPicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState()
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = label,
-            style = TextStyle(
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = AppTheme.extended.textTertiary,
-                letterSpacing = 0.5.sp
-            )
-        )
-        OutlinedTextField(
-            value = value ?: "",
-            onValueChange = {},
-            readOnly = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showPicker = true },
-            enabled = false,
-            placeholder = {
-                Text(
-                    "Select",
-                    style = TextStyle(fontSize = 12.sp, color = AppTheme.extended.textTertiary)
-                )
-            },
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = null,
-                    tint = AppTheme.extended.textTertiary
-                )
-            },
-            textStyle = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface),
-            shape = RoundedCornerShape(8.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                disabledBorderColor = Color.Transparent,
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledTrailingIconColor = AppTheme.extended.textTertiary,
-                disabledPlaceholderColor = AppTheme.extended.textTertiary
-            )
-        )
-    }
-
-    if (showPicker) {
-        DatePickerDialog(
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                        onDateSelected(sdf.format(Date(millis)))
-                    }
-                    showPicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    onDateSelected(null)
-                    showPicker = false
-                }) { Text("Clear") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

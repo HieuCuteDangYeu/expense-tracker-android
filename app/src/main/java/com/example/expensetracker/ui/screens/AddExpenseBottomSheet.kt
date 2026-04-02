@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Close
@@ -27,8 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
+
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -42,7 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
+
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -64,13 +62,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import com.example.expensetracker.ui.components.AppDatePickerField
 import com.example.expensetracker.ui.theme.AppTheme
 import com.example.expensetracker.util.LocationHelper
 import com.example.expensetracker.viewmodel.ExpenseViewModel
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -232,10 +228,10 @@ fun AddExpenseBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                ExpenseDatePickerField(
+                AppDatePickerField(
                     label = "DATE",
                     value = uiState.date,
-                    onDateSelected = { viewModel.updateField("date", it) },
+                    onDateSelected = { it?.let { date -> viewModel.updateField("date", date) } },
                     errorText = uiState.errors["date"],
                     modifier = Modifier.weight(1f)
                 )
@@ -467,86 +463,6 @@ fun AddExpenseBottomSheet(
     }
 }
 
-// ── Date Picker Field ──────────────────────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ExpenseDatePickerField(
-    label: String,
-    value: String,
-    onDateSelected: (String) -> Unit,
-    errorText: String?,
-    modifier: Modifier = Modifier
-) {
-    var showPicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState()
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = label,
-            style = TextStyle(
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppTheme.extended.textSecondary
-            )
-        )
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showPicker = true },
-            enabled = false,
-            placeholder = {
-                Text("Select date", style = TextStyle(fontSize = 14.sp, color = AppTheme.extended.textTertiary))
-            },
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = "Pick date",
-                    tint = AppTheme.extended.textTertiary
-                )
-            },
-            textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
-            shape = RoundedCornerShape(8.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledContainerColor = MaterialTheme.colorScheme.surface,
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledTrailingIconColor = AppTheme.extended.textTertiary,
-                disabledPlaceholderColor = AppTheme.extended.textTertiary
-            ),
-            isError = errorText != null
-        )
-        if (errorText != null) {
-            Text(
-                text = errorText,
-                style = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.error),
-                modifier = Modifier.padding(start = 4.dp)
-            )
-        }
-    }
-
-    if (showPicker) {
-        DatePickerDialog(
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                        onDateSelected(sdf.format(Date(millis)))
-                    }
-                    showPicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-}
 
 // ── Amount Field with $ prefix ─────────────────────────────────────────────────
 @Composable
