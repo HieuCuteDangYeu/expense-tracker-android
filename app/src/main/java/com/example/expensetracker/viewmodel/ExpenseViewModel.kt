@@ -35,30 +35,26 @@ data class AddExpenseFormState(
 )
 
 class ExpenseViewModel(
-    private val projectDao: ProjectDao,
-    private val expenseDao: ExpenseDao
+    private val projectDao: ProjectDao, private val expenseDao: ExpenseDao
 ) : ViewModel() {
 
     private val _projectId = MutableStateFlow<Int?>(null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val projectDetails: StateFlow<ProjectWithExpenses?> = _projectId
-        .filterNotNull()
-        .flatMapLatest { id ->
+    val projectDetails: StateFlow<ProjectWithExpenses?> =
+        _projectId.filterNotNull().flatMapLatest { id ->
             projectDao.getProjectWithExpenses(id)
-        }
-        .stateIn(
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
         )
 
-    val allExpenses: StateFlow<List<ExpenseEntity>> = expenseDao.getAllExpenses()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    val allExpenses: StateFlow<List<ExpenseEntity>> = expenseDao.getAllExpenses().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     private val _formState = MutableStateFlow(AddExpenseFormState())
     val formState: StateFlow<AddExpenseFormState> = _formState.asStateFlow()
@@ -151,7 +147,8 @@ class ExpenseViewModel(
         val errors = mutableMapOf<String, String>()
 
         if (currentState.date.isBlank()) errors["date"] = "Date is required"
-        if (currentState.amount.isBlank() || currentState.amount.toDoubleOrNull() == null) errors["amount"] = "Valid amount is required"
+        if (currentState.amount.isBlank() || currentState.amount.toDoubleOrNull() == null) errors["amount"] =
+            "Valid amount is required"
         if (currentState.claimant.isBlank()) errors["claimant"] = "Claimant is required"
 
         if (errors.isNotEmpty()) {
@@ -162,31 +159,6 @@ class ExpenseViewModel(
         val projectId = _projectId.value ?: return false
 
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            var publicUrl: String? = currentState.receiptUri // fallback to local URI or null
-
-            // If we have a local file path (not HTTP URL), attempt upload
-            if (currentState.receiptUri != null && !currentState.receiptUri.startsWith("http")) {
-                try {
-                    val file = java.io.File(currentState.receiptUri)
-                    if (file.exists()) {
-                        val byteArray = file.readBytes()
-                        
-                        if (byteArray.isNotEmpty()) {
-                            val uuid = UUID.randomUUID().toString()
-                            val supabase = com.example.expensetracker.data.network.SupabaseClient.supabase
-                            
-                            // Upload to 'receipts' bucket
-                            supabase.storage.from("receipts").upload("$uuid.jpg", byteArray)
-                            
-                            // Retrieve public URL
-                            publicUrl = supabase.storage.from("receipts").publicUrl("$uuid.jpg")
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("ExpenseViewModel", "Failed to upload receipt", e)
-                }
-            }
-
             val expense = ExpenseEntity(
                 expenseId = editingExpenseId ?: 0,
                 parentProjectId = projectId,
@@ -199,15 +171,15 @@ class ExpenseViewModel(
                 paymentStatus = currentState.status,
                 description = currentState.description.ifBlank { null },
                 location = currentState.location.ifBlank { null },
-                receiptUrl = publicUrl
+                receiptUrl = currentState.receiptUri
             )
-            
+
             if (editingExpenseId != null) {
                 expenseDao.updateExpense(expense)
             } else {
                 expenseDao.insertExpense(expense)
             }
-            
+
             resetForm()
         }
         return true
@@ -215,13 +187,11 @@ class ExpenseViewModel(
 }
 
 class ExpenseViewModelFactory(
-    private val projectDao: ProjectDao,
-    private val expenseDao: ExpenseDao
+    private val projectDao: ProjectDao, private val expenseDao: ExpenseDao
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ExpenseViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return ExpenseViewModel(projectDao, expenseDao) as T
+            @Suppress("UNCHECKED_CAST") return ExpenseViewModel(projectDao, expenseDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

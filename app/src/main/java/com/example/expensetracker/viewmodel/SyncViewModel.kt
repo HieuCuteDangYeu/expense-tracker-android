@@ -34,9 +34,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 data class SyncHistoryEntry(
-    val timestamp: String,
-    val description: String,
-    val status: String // "Success" or "Error"
+    val timestamp: String, val description: String, val status: String // "Success" or "Error"
 )
 
 enum class SyncStatus {
@@ -44,14 +42,14 @@ enum class SyncStatus {
 }
 
 class SyncViewModel(
-    application: Application,
-    private val projectDao: ProjectDao
+    application: Application, private val projectDao: ProjectDao
 ) : AndroidViewModel(application) {
 
     private val networkObserver = NetworkConnectivityObserver(application)
     val networkStatus: StateFlow<NetworkStatus> = networkObserver.networkStatus
 
-    private val sharedPreferences = application.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
+    private val sharedPreferences =
+        application.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
     private val syncPrefsManager = SyncPreferencesManager(application)
 
     private val _syncStatus = MutableStateFlow(SyncStatus.IDLE)
@@ -69,12 +67,21 @@ class SyncViewModel(
         viewModelScope.launch {
             syncPrefsManager.autoSyncWifiFlow.collect { isEnabled ->
                 _autoSyncWifi.value = isEnabled
+                toggleAutoSync(isEnabled)
+            }
+        }
+
+        viewModelScope.launch {
+            networkStatus.collect { status ->
+                if (status == NetworkStatus.Available_WiFi && _autoSyncWifi.value) {
+                    syncNow()
+                }
             }
         }
     }
 
     private val gson = Gson()
-    
+
     private fun loadHistory(): List<SyncHistoryEntry> {
         val json = sharedPreferences.getString("sync_history", null) ?: return emptyList()
         val type = object : TypeToken<List<SyncHistoryEntry>>() {}.type
@@ -105,14 +112,15 @@ class SyncViewModel(
                     WorkInfo.State.RUNNING -> {
                         _syncStatus.value = SyncStatus.SYNCING
                     }
+
                     WorkInfo.State.SUCCEEDED -> {
                         val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
                         val now = sdf.format(Date())
                         val statusText = "just now"
-                        
+
                         _lastSynced.value = statusText
                         sharedPreferences.edit().putString("last_synced", statusText).apply()
-                        
+
                         _syncStatus.value = SyncStatus.SUCCESS
 
                         val entry = SyncHistoryEntry(
@@ -127,12 +135,15 @@ class SyncViewModel(
                         kotlinx.coroutines.delay(3000)
                         _syncStatus.value = SyncStatus.IDLE
                     }
+
                     WorkInfo.State.FAILED -> {
-                        val errorMsg = workInfo.outputData.getString("error") ?: "Background sync failed"
+                        val errorMsg =
+                            workInfo.outputData.getString("error") ?: "Background sync failed"
                         handleSyncError(errorMsg)
                         kotlinx.coroutines.delay(3000)
                         _syncStatus.value = SyncStatus.IDLE
                     }
+
                     else -> {}
                 }
             }
@@ -144,9 +155,7 @@ class SyncViewModel(
         val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
         val now = sdf.format(Date())
         val entry = SyncHistoryEntry(
-            timestamp = "Today, $now",
-            description = message,
-            status = "Error"
+            timestamp = "Today, $now", description = message, status = "Error"
         )
         val newHistory = listOf(entry) + _syncHistory.value
         _syncHistory.value = newHistory
@@ -164,18 +173,16 @@ class SyncViewModel(
     private fun toggleAutoSync(isEnabled: Boolean) {
         val workManager = WorkManager.getInstance(getApplication())
         if (isEnabled) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.UNMETERED)
-                .build()
+            val constraints =
+                Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build()
 
-            val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
-                .setConstraints(constraints)
-                .build()
+            val syncRequest =
+                PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).setConstraints(
+                    constraints
+                ).build()
 
             workManager.enqueueUniquePeriodicWork(
-                "AutoSyncWork",
-                ExistingPeriodicWorkPolicy.KEEP,
-                syncRequest
+                "AutoSyncWork", ExistingPeriodicWorkPolicy.KEEP, syncRequest
             )
         } else {
             workManager.cancelUniqueWork("AutoSyncWork")
@@ -184,13 +191,11 @@ class SyncViewModel(
 }
 
 class SyncViewModelFactory(
-    private val application: Application,
-    private val projectDao: ProjectDao
+    private val application: Application, private val projectDao: ProjectDao
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SyncViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return SyncViewModel(application, projectDao) as T
+            @Suppress("UNCHECKED_CAST") return SyncViewModel(application, projectDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
