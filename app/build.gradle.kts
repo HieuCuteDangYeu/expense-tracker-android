@@ -109,4 +109,11 @@ dependencies {
 
     // Extended Material Icons (for Camera, Gallery icons)
     implementation("androidx.compose.material:material-icons-extended")
+
+    // Kotlin Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // Android ViewModel Coroutines Support
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.3")
 }

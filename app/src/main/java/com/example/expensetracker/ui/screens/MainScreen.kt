@@ -96,43 +96,43 @@ fun MainScreen(
         }
         TopAppBar(
             title = {
-                Text(
-                    text = titleText, style = androidx.compose.ui.text.TextStyle(
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight(600),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+            Text(
+                text = titleText, style = androidx.compose.ui.text.TextStyle(
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight(600),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            }, navigationIcon = {
-                if (currentRoute != Screen.Projects.route && currentRoute != Screen.Insights.route && currentRoute != Screen.Sync.route) {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }, actions = {
-                if (currentRoute?.startsWith("expense_details") == true) {
-                    IconButton(onClick = { triggerExpenseEdit = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    IconButton(onClick = { showExpenseDeleteDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }, colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
             )
+        }, navigationIcon = {
+            if (currentRoute != Screen.Projects.route && currentRoute != Screen.Insights.route && currentRoute != Screen.Sync.route) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }, actions = {
+            if (currentRoute?.startsWith("expense_details") == true) {
+                IconButton(onClick = { triggerExpenseEdit = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                IconButton(onClick = { showExpenseDeleteDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }, colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
         )
     }, bottomBar = {
         Box(contentAlignment = Alignment.TopCenter) {
@@ -152,7 +152,15 @@ fun MainScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items.forEach { screen ->
-                        val isSelected = currentRoute == screen.route
+                        val isSelected = when (screen) {
+                            Screen.Projects -> {
+                                currentRoute == Screen.Projects.route ||
+                                        currentRoute?.startsWith("project_details") == true ||
+                                        currentRoute?.startsWith("expense_details") == true ||
+                                        currentRoute?.startsWith("add_project") == true
+                            }
+                            else -> currentRoute == screen.route
+                        }
                         val contentColor = if (isSelected) MaterialTheme.colorScheme.onSurface
                         else AppTheme.extended.textTertiary
 
@@ -166,10 +174,10 @@ fun MainScreen(
                                         if (currentRoute != screen.route) {
                                             navController.navigate(screen.route) {
                                                 popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = false
+                                                    saveState = true
                                                 }
                                                 launchSingleTop = true
-                                                restoreState = false
+                                                restoreState = true
                                             }
                                         }
                                     }),
@@ -331,26 +339,26 @@ fun MainScreen(
                 }
                 composable(
                     route = "add_project?projectId={projectId}", arguments = listOf(
-                        androidx.navigation.navArgument("projectId") {
-                            type = androidx.navigation.NavType.StringType
-                            nullable = true
-                        }), enterTransition = {
-                        slideInVertically(
-                            animationSpec = tween(400),
-                            initialOffsetY = { it }) + fadeIn(animationSpec = tween(400))
-                    }, exitTransition = {
-                        slideOutVertically(
-                            animationSpec = tween(400),
-                            targetOffsetY = { it }) + fadeOut(animationSpec = tween(400))
-                    }, popEnterTransition = {
-                        slideInVertically(
-                            animationSpec = tween(400),
-                            initialOffsetY = { it }) + fadeIn(animationSpec = tween(400))
-                    }, popExitTransition = {
-                        slideOutVertically(
-                            animationSpec = tween(400),
-                            targetOffsetY = { it }) + fadeOut(animationSpec = tween(400))
-                    }) { backStackEntry ->
+                    androidx.navigation.navArgument("projectId") {
+                        type = androidx.navigation.NavType.StringType
+                        nullable = true
+                    }), enterTransition = {
+                    slideInVertically(
+                        animationSpec = tween(400),
+                        initialOffsetY = { it }) + fadeIn(animationSpec = tween(400))
+                }, exitTransition = {
+                    slideOutVertically(
+                        animationSpec = tween(400),
+                        targetOffsetY = { it }) + fadeOut(animationSpec = tween(400))
+                }, popEnterTransition = {
+                    slideInVertically(
+                        animationSpec = tween(400),
+                        initialOffsetY = { it }) + fadeIn(animationSpec = tween(400))
+                }, popExitTransition = {
+                    slideOutVertically(
+                        animationSpec = tween(400),
+                        targetOffsetY = { it }) + fadeOut(animationSpec = tween(400))
+                }) { backStackEntry ->
                     val projectIdStr = backStackEntry.arguments?.getString("projectId")
 
                     androidx.compose.runtime.LaunchedEffect(projectIdStr) {

@@ -6,13 +6,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.expensetracker.data.ProjectDao
-import com.example.expensetracker.data.network.SupabaseClient
-import com.example.expensetracker.data.network.dto.SupabaseExpense
-import com.example.expensetracker.data.network.dto.SupabaseProject
-import io.github.jan.supabase.postgrest.from
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -20,13 +13,20 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.example.expensetracker.data.network.SyncPreferencesManager
-import com.example.expensetracker.worker.SyncWorker
+import com.example.expensetracker.data.ProjectDao
 import com.example.expensetracker.data.network.NetworkConnectivityObserver
 import com.example.expensetracker.data.network.NetworkStatus
+import com.example.expensetracker.data.network.SyncPreferencesManager
+import com.example.expensetracker.worker.SyncWorker
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -34,7 +34,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 data class SyncHistoryEntry(
-    val timestamp: String, val description: String, val status: String // "Success" or "Error"
+    val timestamp: String, val description: String, val status: String
 )
 
 enum class SyncStatus {
@@ -42,11 +42,15 @@ enum class SyncStatus {
 }
 
 class SyncViewModel(
-    application: Application, private val projectDao: ProjectDao
+    application: Application
 ) : AndroidViewModel(application) {
 
     private val networkObserver = NetworkConnectivityObserver(application)
-    val networkStatus: StateFlow<NetworkStatus> = networkObserver.networkStatus
+    val networkStatus: StateFlow<NetworkStatus> = networkObserver.networkStatus.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = NetworkStatus.Lost
+    )
 
     private val sharedPreferences =
         application.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
@@ -63,6 +67,17 @@ class SyncViewModel(
     private val _autoSyncWifi = MutableStateFlow(true)
     val autoSyncWifi: StateFlow<Boolean> = _autoSyncWifi.asStateFlow()
 
+    private val gson = Gson()
+
+    // --- PAGINATION VARIABLES ---
+    private val PAGE_SIZE = 15
+    private var allHistoryMemory: List<SyncHistoryEntry> = emptyList()
+    private var currentLoadedCount = 0
+    private var isLoadingMore = false
+
+    private val _syncHistory = MutableStateFlow<List<SyncHistoryEntry>>(emptyList())
+    val syncHistory: StateFlow<List<SyncHistoryEntry>> = _syncHistory.asStateFlow()
+
     init {
         viewModelScope.launch {
             syncPrefsManager.autoSyncWifiFlow.collect { isEnabled ->
@@ -78,16 +93,20 @@ class SyncViewModel(
                 }
             }
         }
-    }
 
-    private val gson = Gson()
+        // Instantly parse history in background on app start
+        viewModelScope.launch(Dispatchers.IO) {
+            allHistoryMemory = loadHistory()
+            loadMoreHistory()
+        }
+    }
 
     private fun loadHistory(): List<SyncHistoryEntry> {
         val json = sharedPreferences.getString("sync_history", null) ?: return emptyList()
         val type = object : TypeToken<List<SyncHistoryEntry>>() {}.type
         return try {
             gson.fromJson(json, type)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -96,8 +115,18 @@ class SyncViewModel(
         sharedPreferences.edit().putString("sync_history", gson.toJson(history)).apply()
     }
 
-    private val _syncHistory = MutableStateFlow<List<SyncHistoryEntry>>(loadHistory())
-    val syncHistory: StateFlow<List<SyncHistoryEntry>> = _syncHistory.asStateFlow()
+    // Called when the LazyColumn reaches the bottom
+    fun loadMoreHistory() {
+        // Prevent loading if we are already loading or have reached the end of the memory
+        if (isLoadingMore || (currentLoadedCount >= allHistoryMemory.size && allHistoryMemory.isNotEmpty())) return
+        isLoadingMore = true
+
+        viewModelScope.launch(Dispatchers.IO) {
+            currentLoadedCount = minOf(currentLoadedCount + PAGE_SIZE, allHistoryMemory.size)
+            _syncHistory.value = allHistoryMemory.take(currentLoadedCount)
+            isLoadingMore = false
+        }
+    }
 
     fun syncNow() {
         if (_syncStatus.value == SyncStatus.SYNCING) return
@@ -128,20 +157,31 @@ class SyncViewModel(
                             description = "Data synchronized successfully via background worker",
                             status = "Success"
                         )
-                        val newHistory = listOf(entry) + _syncHistory.value
-                        _syncHistory.value = newHistory
+
+                        // FIX: Safely prepend the new entry to ALL memory, not just the visible page
+                        val newHistory = listOf(entry) + allHistoryMemory
+                        allHistoryMemory = newHistory
                         saveHistory(newHistory)
 
-                        kotlinx.coroutines.delay(3000)
-                        _syncStatus.value = SyncStatus.IDLE
+                        // Re-calculate the visible page
+                        currentLoadedCount =
+                            minOf(maxOf(currentLoadedCount, PAGE_SIZE), allHistoryMemory.size)
+                        _syncHistory.value = allHistoryMemory.take(currentLoadedCount)
+
+                        delay(3000)
+                        if (_syncStatus.value == SyncStatus.SUCCESS) {
+                            _syncStatus.value = SyncStatus.IDLE
+                        }
                     }
 
                     WorkInfo.State.FAILED -> {
                         val errorMsg =
                             workInfo.outputData.getString("error") ?: "Background sync failed"
                         handleSyncError(errorMsg)
-                        kotlinx.coroutines.delay(3000)
-                        _syncStatus.value = SyncStatus.IDLE
+                        delay(3000)
+                        if (_syncStatus.value == SyncStatus.ERROR) {
+                            _syncStatus.value = SyncStatus.IDLE
+                        }
                     }
 
                     else -> {}
@@ -157,9 +197,15 @@ class SyncViewModel(
         val entry = SyncHistoryEntry(
             timestamp = "Today, $now", description = message, status = "Error"
         )
-        val newHistory = listOf(entry) + _syncHistory.value
-        _syncHistory.value = newHistory
+
+        // FIX: Safely prepend the error entry to ALL memory
+        val newHistory = listOf(entry) + allHistoryMemory
+        allHistoryMemory = newHistory
         saveHistory(newHistory)
+
+        // Re-calculate the visible page
+        currentLoadedCount = minOf(maxOf(currentLoadedCount, PAGE_SIZE), allHistoryMemory.size)
+        _syncHistory.value = allHistoryMemory.take(currentLoadedCount)
     }
 
     fun toggleAutoSyncWifi() {
@@ -175,12 +221,10 @@ class SyncViewModel(
         if (isEnabled) {
             val constraints =
                 Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build()
-
             val syncRequest =
                 PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).setConstraints(
                     constraints
                 ).build()
-
             workManager.enqueueUniquePeriodicWork(
                 "AutoSyncWork", ExistingPeriodicWorkPolicy.KEEP, syncRequest
             )
@@ -195,7 +239,7 @@ class SyncViewModelFactory(
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SyncViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST") return SyncViewModel(application, projectDao) as T
+            @Suppress("UNCHECKED_CAST") return SyncViewModel(application) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
